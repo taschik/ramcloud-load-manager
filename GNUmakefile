@@ -83,14 +83,14 @@ DOXYGEN ?= doxygen
 
 # Test whether Infiniband support is available. Avoids using $(COMFLAGS)
 # (particularly, -MD) which results in bad interactions with mergedeps.
-INFINIBAND = $(shell $(CXX) $(INCLUDES) $(EXTRACXXFLAGS) $(LIBS) -libverbs \
+INFINIBAND = echo no #$(shell $(CXX) $(INCLUDES) $(EXTRACXXFLAGS) $(LIBS) -libverbs \
                          -o /dev/null src/HaveInfiniband.cc \
                          >/dev/null 2>&1 \
                          && echo yes || echo no)
 
 ifeq ($(INFINIBAND),yes)
-COMFLAGS += -DINFINIBAND
-LIBS += -libverbs
+#COMFLAGS += -DINFINIBAND
+#LIBS += -libverbs
 endif
 
 ifeq ($(YIELD),yes)

@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 .*.swp
 \#*#
 *.pyc
@@ -19,3 +20,17 @@
 /scripts/localconfig.py
 TAGS
 tags
+=======
+# Compiled Object files
+*.slo
+*.lo
+*.o
+
+# Compiled Dynamic libraries
+*.so
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+>>>>>>> 58ebb7f872175bec09ec769df9c4832946ffcf72
