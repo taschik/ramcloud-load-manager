@@ -26,9 +26,9 @@ int main(int argc, char const *argv[])
 
     uint16_t length = buffer.getTotalLength();
 
-    char str[length];
+    char* str = new char[length];
 
-    uint32_t returned = buffer.copy(0, buffer.getTotalLength(), str);
+    uint32_t returned = buffer.copy(0, length, str);
 
 
     std::cout << "Greetings from RAMCloud: " << str << std::endl;
