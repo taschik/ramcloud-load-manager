@@ -7,6 +7,7 @@
 #include <exception>
 
 using namespace std;
+using namespace RAMCloud;
 
 /**
  * GLOBALS
@@ -16,22 +17,69 @@ uint32_t INSERTAMOUNT = 20;
 string host = "192.168.30.187";
 int port = 12246;
 
-int intLength(int integer){
-    int end = 0;
-     while(integer > 0) {
-                integer = integer/10;
-                end++;
-        }
-    return end;
+void split(RAMCloud::RamCloud* cloud, const char* tableName){
+    try {
+       cloud->splitTablet(tableName, 0, ~0UL, (~0UL/2));
+       std::cout << "Split Successfully" << std::endl;
+    }
+    catch(RAMCloud::TabletDoesntExistException e){
+
+        std::cout << "ERROR: split failed: " << e.what() << std::endl;
+    }
 }
 
-char* itoa (int value){
+void migrate(Connection* connection,
+            const char* charTableName,
+            uint64_t tableId, 
+            uint64_t firstKey, 
+            uint64_t lastKey, 
+            uint64_t newOwnerMasterId=0){
+try {
+    string tableName = charTableName;
 
-    int length = intLength(value);
-    char* key = new char[length];
-    sprintf(key,"%d",value);
 
-    return key;
+    RAMCloud::Context* context;
+    context = new Context(true);
+    
+    Context::Guard _(*context);
+    
+    if (tableName == "") {
+        fprintf(stderr, "error: please specify the table name\n");
+        exit(1);
+    }
+    if (newOwnerMasterId == 0) {
+        fprintf(stderr, "error: please specify the recipient's ServerId\n");
+        exit(1);
+    }
+    string coordinatorLocator = connection->getConnectionString();
+    std::cout << "client: Connecting to coordinator " << coordinatorLocator << endl;
+
+    RamCloud client(*context, coordinatorLocator.c_str());
+    tableId = client.getTableId(tableName.c_str());
+    
+    Transport::SessionRef session = client.objectFinder.lookup(
+        downCast<uint32_t>(tableId), reinterpret_cast<char*>(&firstKey),
+        sizeof(firstKey));
+
+    MasterClient master(session);
+
+    printf("Issuing migration request:\n");
+    printf("  table \"%s\" (%lu)\n", tableName.c_str(), tableId);
+    printf("  first key %lu\n", firstKey);
+    printf("  last key  %lu\n", lastKey);
+    printf("  current master locator \"%s\"",
+        session->getServiceLocator().c_str());
+    printf("  recipient master id %lu\n", newOwnerMasterId);
+
+    master.migrateTablet(tableId,
+                         firstKey,
+                         lastKey,
+                         ServerId(newOwnerMasterId));
+    cout << "Migration complete" << endl;
+    }
+    catch ( RAMCloud::ServiceLocator::BadServiceLocatorException e){
+         std::cout << "ERROR: migration failed! " << e.what() << std::endl;
+    }
 }
 
 int main(int argc, char const *argv[])
@@ -40,7 +88,6 @@ int main(int argc, char const *argv[])
     connection = new Connection(host, port);
     connection->connect();
 
-    std::cout << "Successfully connected to " << host << std::endl;
 
     RAMCloud::RamCloud* cloud = connection->getRamCloud();
 
@@ -55,7 +102,7 @@ int main(int argc, char const *argv[])
     for (unsigned int i=0; i < INSERTAMOUNT; i++)
     {   
         
-        char* key = itoa(i);
+        char* key = Helper::itoa(i);
         // std::cout << key << " size:" << strlen(key) << std::endl;
         
         char* value = new char[strlen(key)+strlen("_Hallo")]; 
@@ -63,14 +110,9 @@ int main(int argc, char const *argv[])
 
         cloud->write(tableId, key, strlen(key), value);
     }
-    try {
-       cloud->splitTablet(tableName, (uint64_t)0, (uint64_t)20,(uint64_t)10);
-
-    }
-    catch(RAMCloud::TabletDoesntExistException e){
-
-        std::cout << "Split failed: " << e.what() << std::endl;
-    }
+    
+    // split(cloud, tableName);
+    migrate(connection, tableName, tableId, 0, ~0U, 1);
 
     //read INSERTAMOUNT Values from RAMCloud
     for (unsigned int i=0; i < INSERTAMOUNT; i++)
@@ -78,7 +120,7 @@ int main(int argc, char const *argv[])
         RAMCloud::Buffer buffer;
 
 
-        char* key = itoa(i);
+        char* key = Helper::itoa(i);
 
         cloud->read(tableId, key, strlen(key), &buffer);
         uint16_t length = buffer.getTotalLength();
