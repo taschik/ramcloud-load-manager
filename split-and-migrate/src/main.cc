@@ -4,6 +4,7 @@
 #include <string>
 #include <stdio.h>
 #include <stdlib.h>
+#include <exception>
 
 using namespace std;
 
@@ -11,7 +12,7 @@ using namespace std;
  * GLOBALS
  */
 Connection* connection = NULL;
-uint32_t INSERTAMOUNT = 15;
+uint32_t INSERTAMOUNT = 20;
 string host = "192.168.30.187";
 int port = 12246;
 
@@ -43,25 +44,32 @@ int main(int argc, char const *argv[])
 
     RAMCloud::RamCloud* cloud = connection->getRamCloud();
 
-    const char* kTableName = "split";
+    const char* tableName = "split";
 
-    cloud->createTable(kTableName);
+    cloud->createTable(tableName);
 
-    const uint64_t tableId = cloud->getTableId(kTableName);
+    const uint64_t tableId = cloud->getTableId(tableName);
 
 
-    //write INSERTAMOUNT Values to RAMCloud
+    // write INSERTAMOUNT Values to RAMCloud
     for (unsigned int i=0; i < INSERTAMOUNT; i++)
     {   
         
         char* key = itoa(i);
-        //std::cout << key << " size:" << strlen(key) << std::endl;
+        // std::cout << key << " size:" << strlen(key) << std::endl;
         
         char* value = new char[strlen(key)+strlen("_Hallo")]; 
         sprintf(value, "%d_Hallo", i);
-        
 
         cloud->write(tableId, key, strlen(key), value);
+    }
+    try {
+       cloud->splitTablet(tableName, (uint64_t)0, (uint64_t)20,(uint64_t)10);
+
+    }
+    catch(RAMCloud::TabletDoesntExistException e){
+
+        std::cout << "Split failed: " << e.what() << std::endl;
     }
 
     //read INSERTAMOUNT Values from RAMCloud
