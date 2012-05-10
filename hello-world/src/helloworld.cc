@@ -28,9 +28,8 @@ int main(int argc, char const *argv[])
 
     char* str = new char[length];
 
-    uint32_t returned = buffer.copy(0, length, str);
-
-
+    buffer.copy(0, buffer.getTotalLength(), str);
+    
     std::cout << "Greetings from RAMCloud: " << str << std::endl;
     
     return 0;
