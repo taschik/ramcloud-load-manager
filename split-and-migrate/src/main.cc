@@ -67,8 +67,7 @@ try {
     printf("  table \"%s\" (%lu)\n", tableName.c_str(), tableId);
     printf("  first key %lu\n", firstKey);
     printf("  last key  %lu\n", lastKey);
-    printf("  current master locator \"%s\"",
-        session->getServiceLocator().c_str());
+    printf("  current master locator \"%s\"\n", session->getServiceLocator().c_str());
     printf("  recipient master id %lu\n", newOwnerMasterId);
 
     master.migrateTablet(tableId,
@@ -80,6 +79,9 @@ try {
     catch ( RAMCloud::ServiceLocator::BadServiceLocatorException e){
          std::cout << "ERROR: migration failed! " << e.what() << std::endl;
     }
+    catch (RAMCloud::RequestFormatError e){
+        std::cout << "ERROR: migration failed! " << e.what() << std::endl;
+    }
 }
 
 int main(int argc, char const *argv[])
@@ -90,13 +92,19 @@ int main(int argc, char const *argv[])
 
 
     RAMCloud::RamCloud* cloud = connection->getRamCloud();
-
     const char* tableName = "split";
 
-    cloud->createTable(tableName);
+    try {
+         if (cloud->getTableId(tableName)){
+            cloud->dropTable(tableName);
+        }
+    }
+    catch (RAMCloud::TableDoesntExistException e){
+        cout << "Table does not exist! I am going to create it!" << endl;
+    }
 
+    cloud->createTable(tableName,0);
     const uint64_t tableId = cloud->getTableId(tableName);
-
 
     // write INSERTAMOUNT Values to RAMCloud
     for (unsigned int i=0; i < INSERTAMOUNT; i++)
@@ -112,20 +120,22 @@ int main(int argc, char const *argv[])
     }
     
     // split(cloud, tableName);
-    migrate(connection, tableName, tableId, 0, ~0U, 1);
+    migrate(connection, tableName, tableId, 0, ~0UL, 1);
 
     //read INSERTAMOUNT Values from RAMCloud
     for (unsigned int i=0; i < INSERTAMOUNT; i++)
     {   
         RAMCloud::Buffer buffer;
 
-
         char* key = Helper::itoa(i);
 
         cloud->read(tableId, key, strlen(key), &buffer);
-        uint16_t length = buffer.getTotalLength();
-        char* str = new char[length];
 
+        uint16_t length = buffer.getTotalLength();
+
+        char* str = new char[length + 1];
+        str[length] = 0;
+        
         buffer.copy(0, buffer.getTotalLength(), str);
         std::cout << "Key: " << key << " Value: " << str << std::endl;
     }
