@@ -19,9 +19,10 @@ private:
     int port;
 
     RAMCloud::RamCloud* ramCloud;
-    // RAMCloud::Context* context;
-    // RAMCloud::OptionsDescription* optionsDescription;
-    // RAMCloud::OptionParser* optionParser;
+
+	string tableName;
+	unsigned int tableId;
+
 
 public:
     Connection(string host, int port);
@@ -32,6 +33,12 @@ public:
     string getHost();
     string getConnectionString();
     int getPort();
+
+	unsigned int getTableId();
+
+	string getTableName();
+	void setTableName(string &tableName);
+	void unsetTableName();
 
     RAMCloud::RamCloud* getRamCloud();
 
