@@ -20,7 +20,7 @@ int port = 12246;
 void split(RAMCloud::RamCloud* cloud, const char* tableName){
     try {
        cloud->splitTablet(tableName, 0, ~0UL, (~0UL/2));
-       std::cout << "Split Successfully" << std::endl;
+       std::cout << "--> Split Successfully" << std::endl;
     }
     catch(RAMCloud::TabletDoesntExistException e){
 
@@ -47,10 +47,7 @@ try {
         fprintf(stderr, "error: please specify the table name\n");
         exit(1);
     }
-    if (newOwnerMasterId == 0) {
-        fprintf(stderr, "error: please specify the recipient's ServerId\n");
-        exit(1);
-    }
+
     string coordinatorLocator = connection->getConnectionString();
     std::cout << "client: Connecting to coordinator " << coordinatorLocator << endl;
 
@@ -63,11 +60,17 @@ try {
 
     MasterClient master(session);
 
+    string currentServiceLocator = session->getServiceLocator();
+    if (newOwnerMasterId == 0) {
+        newOwnerMasterId = (atoi(&currentServiceLocator[currentServiceLocator.length()-1]) -1 ) %2 +1;
+        printf("Migrating to Oponentserver in 2 Server setup");
+    }
+
     printf("Issuing migration request:\n");
     printf("  table \"%s\" (%lu)\n", tableName.c_str(), tableId);
     printf("  first key %lu\n", firstKey);
     printf("  last key  %lu\n", lastKey);
-    printf("  current master locator \"%s\"\n", session->getServiceLocator().c_str());
+    printf("  current master locator \"%s\"\n", currentServiceLocator.c_str());
     printf("  recipient master id %lu\n", newOwnerMasterId);
 
     master.migrateTablet(tableId,
@@ -97,13 +100,17 @@ int main(int argc, char const *argv[])
     try {
          if (cloud->getTableId(tableName)){
             cloud->dropTable(tableName);
+            cout << "--> Old table " << tableName << " has been dropped!" << endl;
+
         }
     }
     catch (RAMCloud::TableDoesntExistException e){
-        cout << "Table does not exist! I am going to create it!" << endl;
+        cout << "Table " << tableName << " does not exist!" << endl;
     }
 
     cloud->createTable(tableName,0);
+    cout << "--> Table " << tableName << " has been created!" << endl;
+
     const uint64_t tableId = cloud->getTableId(tableName);
 
     // write INSERTAMOUNT Values to RAMCloud
@@ -119,8 +126,8 @@ int main(int argc, char const *argv[])
         cloud->write(tableId, key, strlen(key), value);
     }
     
-    // split(cloud, tableName);
-    migrate(connection, tableName, tableId, 0, ~0UL, 1);
+    split(cloud, tableName);
+    migrate(connection, tableName, tableId, 0, (~0UL/2) -1 , 0);
 
     //read INSERTAMOUNT Values from RAMCloud
     for (unsigned int i=0; i < INSERTAMOUNT; i++)
@@ -135,7 +142,7 @@ int main(int argc, char const *argv[])
 
         char* str = new char[length + 1];
         str[length] = 0;
-        
+
         buffer.copy(0, buffer.getTotalLength(), str);
         std::cout << "Key: " << key << " Value: " << str << std::endl;
     }
