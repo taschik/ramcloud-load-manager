@@ -87,6 +87,9 @@ void Migrate::migrateTablet()
 	catch (RAMCloud::TableDoesntExistException e) {
 		cout << "ERROR: migration failed! " << e.what() << endl;
 	}
+	catch (RAMCloud::UnknownTableException e){
+		cout << "ERROR: migration failed! " << e.what() << endl;
+	}
 }
 
 

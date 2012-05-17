@@ -106,10 +106,11 @@ bool ensureConnection() {
 bool ensureSetTable() {
 	if (ensureConnection()) {
 		if (connection->getTableId() != (unsigned int)-1) {
-			writeResultLine("No table selected! Use 'SET TABLE <TABLE_NAME>' to select a table.");
 			return true;
 		}
 	}
+	writeResultLine("No table selected! Use 'SET TABLE <TABLE_NAME>' to select a table.");
+
 	return false;
 }
 
@@ -176,9 +177,9 @@ int writeString(vector<string>& args) {
 	}
 
 	const char* key = args[0].c_str();
-	string value = args[2];
+	string value = args[1];
+
 	connection->getRamCloud()->write(connection->getTableId(), key, strlen(key), value.c_str());
-	cout << value.c_str();
 	return 0;
 }
 
@@ -189,13 +190,18 @@ int splitTable(vector<string>& args){
 	const char* tableName = args[0].c_str();
 	uint64_t start = atoi(args[1].c_str());
 	uint64_t end =  NULL;
+	uint64_t splitPoint = NULL;
+
 	if (args[2] == "~0UL"){
 		end = ~0UL;
-
 	} else {
 		end = atoi(args[2].c_str());
 	}
-	uint64_t splitPoint = atoi(args[3].c_str());
+	if (args[3] == "~0UL/2"){
+		splitPoint = ~0UL/2;
+	} else {
+		splitPoint = atoi(args[3].c_str());
+	}
 
 	cout << start << " " << end << " split point " << splitPoint <<endl;
 	Split* split = new Split(connection->getRamCloud(), tableName, start, end, splitPoint);
@@ -210,11 +216,20 @@ int migrateTablet(vector<string>& args){
 	connection->setTableName(args[0]);
 
 	uint64_t tableId = connection->getTableId();
-	uint64_t start = atoi(args[1].c_str());
+	uint64_t start = NULL;
 	uint64_t end = NULL;
+
+	if (args[1] == "~0UL"){
+		start = ~0UL;
+	} else if (args[1] == "~0UL/2") {
+		start = ~0UL/2;
+	} else {
+		start = atoi(args[1].c_str());
+	}
 	if (args[2] == "~0UL"){
 		end = ~0UL;
-
+	} else if (args[2] == "~0UL/2") {
+		end = ~0UL/2 - 1;
 	} else {
 		end = atoi(args[2].c_str());
 	}

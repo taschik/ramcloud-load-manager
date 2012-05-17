@@ -41,11 +41,11 @@ RamCloud* Connection::getRamCloud() {
 
 unsigned int Connection::getTableId()
 {
-	return tableId;
+	return this->tableId;
 }
 void Connection::setTableName(string &tableName) {
-	tableName = tableName;
-	tableId = ramCloud->getTableId(tableName.c_str());
+	this->tableName = tableName;
+	this->tableId = ramCloud->getTableId(tableName.c_str());
 }
 
 string Connection::getTableName(){
