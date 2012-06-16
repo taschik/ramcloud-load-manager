@@ -16,6 +16,10 @@
 #include "ObjectFinder.h"
 #include "ShortMacros.h"
 #include "KeyHash.h"
+#include "KeyUtil.h"
+
+
+#include <iostream>
 
 namespace RAMCloud {
 
@@ -106,6 +110,13 @@ ObjectFinder::lookup(uint64_t table, const char* key, uint16_t keyLength) {
     }
 }
 
+Transport::SessionRef
+ObjectFinder::getSessionRef(std::string serverConnectionString) {
+    return Context::get().transportManager->getSession(
+                                serverConnectionString.c_str());
+}
+
+
 /**
  * Lookup the masters for multiple keys across tables.
  * \param requests
@@ -151,6 +162,98 @@ ObjectFinder::multiLookup(MasterClient::ReadObject* requests[],
 
     return requestBins;
 }
+
+std::set<Transport::SessionRef>
+ObjectFinder::tableLookup(uint64_t table)
+{
+    std::set<Transport::SessionRef> sessionRefBins;
+
+    if (sessionRefBins.size() == 0) {
+                    // tablet is recovering or something, try again
+                    tabletMapFetcher->getTabletMap(tabletMap);
+    }
+
+
+    foreach (const ProtoBuf::Tablets::Tablet& tablet, tabletMap.tablet()) {
+        if (tablet.table_id() == table) {
+            if (tablet.state() == ProtoBuf::Tablets_Tablet_State_NORMAL) {
+                // TODO(ongaro): add cache
+                sessionRefBins.insert(Context::get().transportManager->getSession(
+                                                                tablet.service_locator().c_str()));
+            }
+        }
+
+    }
+
+    return sessionRefBins;
+}
+
+std::vector<ObjectFinder::KeysAtServer>
+ObjectFinder::resolveTableDistribution(uint64_t tableId, uint64_t maxKey)
+{
+    std::vector<ObjectFinder::KeysAtServer> tableDistribution;
+
+    // This map contains all keys and their hash values
+    std::map<uint64_t, HashType> keysMap;
+    std::map<uint64_t, HashType>::iterator it;
+
+    for(uint64_t i = 0;i<=maxKey;i++) {
+        MakeKey key(i);
+        HashType keyHash = getKeyHash(key.get(), key.length());
+        keysMap[i] = keyHash;
+    }
+
+    // Iterate over tablets, check for each tablet which keys are included
+    tabletMapFetcher->getTabletMap(tabletMap);
+
+    foreach (const ProtoBuf::Tablets::Tablet& tablet, tabletMap.tablet()) {
+        if (tablet.table_id() == tableId) {
+            if (tablet.state() == ProtoBuf::Tablets_Tablet_State_NORMAL) {
+
+                std::string currentConnectionString =
+                                tablet.service_locator().c_str();
+
+                // Check if server is already listed. If yes add keys otherwise
+                // add new KeysAtServer
+                bool masterFound = false;
+                for (uint32_t i = 0; i < tableDistribution.size(); i++) {
+                     if (currentConnectionString ==
+                                tableDistribution[i].serverConnectionString) {
+
+                       for (it=keysMap.begin(); it != keysMap.end(); it++) {
+                            if (tablet.start_key_hash() <= it->second &&
+                                it->second <= tablet.end_key_hash()) {
+                                tableDistribution[i].keys.push_back(it->first);
+                            }
+                        }
+
+                       masterFound = true;
+                       break;
+                     }
+                }
+
+                if (!masterFound) {
+                    tableDistribution.push_back(ObjectFinder::KeysAtServer());
+                    tableDistribution.back().serverConnectionString =
+                                        tablet.service_locator().c_str();
+
+                    for (it=keysMap.begin(); it != keysMap.end(); it++) {
+                         if (tablet.start_key_hash() <= it->second &&
+                             it->second <= tablet.end_key_hash()) {
+                             tableDistribution.back().keys.push_back(it->first);
+                         }
+                    }
+                }
+
+            }
+        }
+
+    }
+
+    return tableDistribution;
+}
+
+
 
 /**
  * Flush the tablet map and refresh it until we detect that at least one tablet

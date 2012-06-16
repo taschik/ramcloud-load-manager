@@ -44,10 +44,23 @@ class ObjectFinder {
         std::vector<MasterClient::ReadObject*> requests;
     };
 
+    struct KeysAtServer {
+        KeysAtServer() : serverConnectionString(), keys() {}
+        std::string serverConnectionString;
+        std::vector<uint64_t> keys;
+    };
+
     Transport::SessionRef lookup(uint64_t table, const char* key,
                                  uint16_t keyLength);
+    Transport::SessionRef getSessionRef(std::string serverConnectionString);
     std::vector<MasterRequests> multiLookup(MasterClient::ReadObject* input[],
                                             uint32_t numRequests);
+
+    std::set<Transport::SessionRef> tableLookup(uint64_t table);
+
+    std::vector<KeysAtServer> resolveTableDistribution(uint64_t tableId,
+                                                       uint64_t maxKey);
+
 
     /**
      * Jettison all tablet map entries forcing a fetch of fresh mappings
