@@ -183,6 +183,25 @@ int writeString(vector<string>& args) {
 	return 0;
 }
 
+int writeThousandStrings(vector<string>& args) {
+
+	if (!ensureSetTable() || !validateArgs(args, 2, 2)) {
+		return -1;
+	}
+
+	// const char* key = args[0].c_str();
+	string value = args[1];
+	int entries = 0;
+	entries = atoi(args[0].c_str());
+
+	for (int i =0; i < entries; i++){
+			char* key = Helper::itoa(i);
+			connection->getRamCloud()->write(connection->getTableId(), key, strlen(key), value.c_str());
+			cout << "wrote key " << Helper::itoa(i) << " with value " << value << endl;
+	}
+	return 0;
+}
+
 int splitTable(vector<string>& args){
 	if (!ensureConnection() || !validateArgs(args, 4, 4)) {
 		return -1;
@@ -249,6 +268,7 @@ void initializeCommands() {
 	commands["drop table"] = &dropTable;
 	commands["read string"] = &readString;
 	commands["write string"] = &writeString;
+	commands["write strings"] = &writeThousandStrings;
 }
 
 
