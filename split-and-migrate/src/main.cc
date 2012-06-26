@@ -11,7 +11,7 @@ using namespace RAMCloud;
  */
 
 uint32_t INSERTAMOUNT = 20;
-string host = "192.168.30.187";
+string host = "tcp:host=192.168.30.187";
 int port = 12246;
 map<string, int (*)(vector<string>&) > commands;
 Connection* connection = NULL;
@@ -195,9 +195,9 @@ int writeThousandStrings(vector<string>& args) {
 	entries = atoi(args[0].c_str());
 
 	for (int i =0; i < entries; i++){
-			char* key = Helper::itoa(i);
-			connection->getRamCloud()->write(connection->getTableId(), key, strlen(key), value.c_str());
-			cout << "wrote key " << Helper::itoa(i) << " with value " << value << endl;
+		char* key = Helper::itoa(i);
+		connection->getRamCloud()->write(connection->getTableId(), key, strlen(key), value.c_str());
+		cout << "wrote key " << Helper::itoa(i) << " with value " << value << endl;
 	}
 	return 0;
 }
@@ -230,6 +230,8 @@ int splitTable(vector<string>& args){
 }
 int migrateTablet(vector<string>& args){
 	if (!ensureConnection() || !validateArgs(args, 4, 4)) {
+		cout << "Usage: migrate tablet TABLENAME STARTHASH ENDHASH TARGETSERVER" << endl;
+		cout << "e.g. migrate tablet customer::C_MKTSEGMENT 0 ~0UL 0" << endl;
 		return -1;
 	}
 	connection->setTableName(args[0]);
@@ -259,17 +261,101 @@ int migrateTablet(vector<string>& args){
 
 	return 0;
 }
+int showTabletStatistics(vector<string>& args){
+	if (!ensureConnection() || !validateArgs(args, 0, 1)) {
+		return -1;
+	}
 
+	uint64_t tableId;
+
+	if (args[0] != ""){
+		tableId= connection->getTableIdFromName(args[0]);
+	}
+	else {
+		tableId = connection->getTableId();
+	}
+
+	RamCloud client(*(connection->getContext()), connection->getConnectionString().c_str());
+
+	MasterService masterService;
+
+	RAMCloud::Table* table = reinterpret_cast<Table*>(
+			masterService.tablets.tablet(tableId).user_data());
+	cout << "Tablet stati: " << table->statEntry.number_read_and_writes() << endl;
+	return 0;
+}
+
+int showServerStatistics(vector<string>& args){
+	if (!ensureConnection() || !validateArgs(args, 1, 1)) {
+		return -1;
+	}
+	string key = args[0];
+
+
+	RAMCloud::Context* context = connection->getContext();
+	Context::Guard _(*context);
+
+	string coordinatorLocator = connection->getConnectionString();
+
+	RamCloud client(*context, coordinatorLocator.c_str());
+
+	ProtoBuf::ServerStatistics serverStats;
+	Transport::SessionRef session = client.objectFinder.lookup(
+			downCast<uint32_t>(connection->getTableId()), reinterpret_cast<char*>(&key),
+			sizeof(key));
+	MasterClient masterClient(session);
+
+	masterClient.getServerStatistics(serverStats);
+	cout << serverStats.ShortDebugString() << endl;
+
+	//	ServerMetrics metrics = client.getMetrics(connection->getTableId(), key.c_str(), sizeof(key));
+	//  MasterService* service = client.getServiceLocator();
+	//	ProtoBuf::ServerStatistics serverStats;
+	//	master.getServerStatistics(serverStats);
+	//	cout << "Stati " << service->getServerStatistics() << endl;
+	//RAMCloud::Table* table = reinterpret_cast<Table*>(service->tablets.tablet(connection->tableId).user_data());
+	//	cout << "# of table access" << table->statEntry.number_read_and_writes() << endl;
+	return 0;
+}
+
+int init(vector<string>& args){
+	string tableName = "test_table";
+	vector<string> createTableArgs;
+	vector<string> setTableArgs;
+	vector<string> writeThousandStringsArgs;
+	vector<string> showStatisticsArgs;
+
+	writeThousandStringsArgs.push_back("1000");
+	writeThousandStringsArgs.push_back("testValue");
+
+	createTableArgs.push_back(tableName);
+	setTableArgs.push_back(tableName);
+
+	showStatisticsArgs.push_back("999");
+
+	createTable(createTableArgs);
+	setTable(setTableArgs);
+	writeThousandStrings(writeThousandStringsArgs);
+	showServerStatistics(showStatisticsArgs);
+
+	return 0;
+}
 void initializeCommands() {
+	commands["init"] = &init;
 	commands["set table"] = &setTable;
 	commands["create table"] = &createTable;
 	commands["split table"] = &splitTable;
 	commands["migrate tablet"] = &migrateTablet;
 	commands["drop table"] = &dropTable;
-	commands["read string"] = &readString;
-	commands["write string"] = &writeString;
+	commands["read"] = &readString;
+	commands["write"] = &writeString;
 	commands["write strings"] = &writeThousandStrings;
+	commands["server stats"] = &showServerStatistics;
+	commands["tablet stats"] = &showTabletStatistics;
+	commands["stats"] = &showServerStatistics;
+
 }
+
 
 
 void executeCommand(string input) {

@@ -6,7 +6,7 @@
  */
 
 #include "Migrate.h"
-
+#include "Connection.h"
 
 using namespace RAMCloud;
 using namespace std;
@@ -43,9 +43,10 @@ void Migrate::migrateTablet()
 {
 	try {
 
-		RAMCloud::Context* context;
-		context = new Context(true);
+//		RAMCloud::Context* context;
+//		context = new Context(true);
 
+		RAMCloud::Context* context = connection->getContext();
 		Context::Guard _(*context);
 
 		string coordinatorLocator = connection->getConnectionString();

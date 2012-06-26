@@ -9,6 +9,8 @@
 #define GLOBAL_H_
 
 #include "RamCloud.h"
+#include "Table.h"
+#include "MasterService.h"
 #include <iostream>
 #include <string>
 #include <stdio.h>

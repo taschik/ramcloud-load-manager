@@ -14,33 +14,36 @@
 class Connection {
 
 private:
-    string host;
-    string connectionString;
-    int port;
+	string host;
+	string connectionString;
+	int port;
 
-    RAMCloud::RamCloud* ramCloud;
-
+	RAMCloud::RamCloud* ramCloud;
+	RAMCloud::Context* context;
 	string tableName;
 	unsigned int tableId;
 
 
 public:
-    Connection(string host, int port);
-    virtual ~Connection();
+	Connection(string host, int port);
+	virtual ~Connection();
 
-    void connect();
+	void connect();
 
-    string getHost();
-    string getConnectionString();
-    int getPort();
+	string getHost();
+	string getConnectionString();
+	int getPort();
 
 	unsigned int getTableId();
+	unsigned int getTableIdFromName(string name);
 
 	string getTableName();
 	void setTableName(string &tableName);
 	void unsetTableName();
 
-    RAMCloud::RamCloud* getRamCloud();
+	RAMCloud::RamCloud* getRamCloud();
+	RAMCloud::Context* getContext();
+	//    RAMCloud::MasterClient* getMasterClient(unsigned int tableId, std::string object);
 
 };
 
