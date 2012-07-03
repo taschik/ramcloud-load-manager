@@ -207,7 +207,7 @@ int writeThousandStrings(vector<string>& args) {
 	for (int i =0; i < entries; i++){
 		char* key = Helper::itoa(i);
 		connection->getRamCloud()->write(connection->getTableId(), key, strlen(key), value.c_str());
-//		cout << "wrote key " << Helper::itoa(i) << " with value " << value << endl;
+		//		cout << "wrote key " << Helper::itoa(i) << " with value " << value << endl;
 	}
 	return 0;
 }
@@ -303,6 +303,8 @@ int migrateQuickTablet(vector<string>& args){
 	//	}
 	argsnew.push_back(args[1]);
 	migrateTablet(argsnew);
+
+	return 0;
 }
 
 //int showTabletStatistics(vector<string>& args){
@@ -389,6 +391,31 @@ int init(vector<string>& args){
 
 	return 0;
 }
+
+int loopMigration(vector<string>& args){
+
+	connection->setTableName(args[0]);
+	int targetServer = 2;
+
+	for (int i = 0; i < 1000; i++){
+		uint64_t tableId = connection->getTableId();
+		uint64_t start = 0;
+		uint64_t end = ~0UL;
+
+		if (targetServer == 1){
+			targetServer = 2;
+		}else {
+			targetServer = 1;
+		}
+		cout << "[+] Migration run: " << i << endl;
+		Migrate* migrate = new Migrate(connection, tableId, start, end, targetServer);
+		migrate->migrateTablet();
+		sleep(1);
+	}
+
+	return 0;
+
+}
 void initializeCommands() {
 	commands["init"] = &init;
 	commands["set table"] = &setTable;
@@ -403,6 +430,7 @@ void initializeCommands() {
 	commands["server stats"] = &showServerStatistics;
 	//	commands["tablet stats"] = &showTabletStatistics;
 	commands["stats"] = &showServerStatistics;
+	commands["loop migration"] = &loopMigration;
 
 }
 
