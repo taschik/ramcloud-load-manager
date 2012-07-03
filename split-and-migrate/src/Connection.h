@@ -25,7 +25,7 @@ private:
 
 
 public:
-	Connection(string host, int port);
+	Connection(string connectionString);
 	virtual ~Connection();
 
 	void connect();

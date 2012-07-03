@@ -8,6 +8,7 @@
 #include "Transport.h"
 #include "RejectRules.h"
 #include "Timer.h"
+#include "ObjectFinder.h"
 
 #include <sys/time.h>
 #include <unistd.h>
@@ -30,67 +31,74 @@ using namespace std;
 const char * kTableName = "test10";
 size_t kNumValues = 100;
 Timer myTimer;
+static int intLength(int integer){
+	int end = 0;
+	while(integer > 0) {
+		integer = integer/10;
+		end++;
+	}
+	return end;
+}
+
+static char* itoa (int value){
+
+	int length = intLength(value);
+	char* key = new char[length];
+	sprintf(key,"%d",value);
+
+	return key;
+}
 
 int main(int argc, char const *argv[]) {
-	const char* coordinatorLocator = "tcp:host=192.168.30.187,port=12246";
+	const char* coordinatorLocator = "tcp:host=127.0.0.1,port=12246";
 
 	RamCloud cloud(coordinatorLocator);
 	debug("[+] Connected\n");
+	cloud.createTable("tt");
+	int tableId = cloud.getTableId("tt");
+//	cloud.write(tableId, "key", 3, "value");
+	cloud.write(tableId, "key", 3, "value");
+	cloud.write(tableId, "key1", 4, "value1");
+	cloud.write(tableId, "key1", 4, "value1");
 
-	cloud.createTable(kTableName);
-	debug("[+] Created table\n");
+	//
+	//		for (int i = 0; i < 60; i++){
+	//			string tableId = itoa(i);
+	//			cloud.createTable(tableId.c_str());
+	//			cout<< "[+] Created table " << i << endl;
+	//			cloud.getTableId(tableId.c_str());
+	//			cout << "[+] Opened table id " << tableId << endl;
+	//
+	//			uint64_t version;
+	//			for (unsigned int i = 0; i < 1000; i++) {
+	//				std::ostringstream str;
+	//				str << i;
+	//				std::string key(str.str());
+	//				cloud.write(0, key.c_str(), key.size(), "itemX", 5, NULL, &version);
+	//			}
+	//			printf("writing testdata done\n");
+	//		}
 
-	const uint32_t tableId = cloud.getTableId(kTableName);
-	debug("[+] Opened table id %u\n", tableId);
-
-	uint64_t version;
-	for (unsigned int i = 0; i < 1000; i++) {
-		std::ostringstream str;
-		str << i;
-		std::string key(str.str());
-		cloud.write(0, key.c_str(), key.size(), "itemX", 5, NULL, &version);
-	}
-	printf("writing testdata done\n");
 
 	Context context(true);
 	Context::Guard _(context);
 
 	RamCloud client(context, coordinatorLocator);
+	std::set<Transport::SessionRef> sessions;
+	sessions = client.objectFinder.tableLookup(tableId);
 
-	Transport::SessionRef session = client.objectFinder.lookup(
-			downCast<uint32_t>(tableId), "0", 4);
-
+	//	Transport::SessionRef session = client.objectFinder.lookup(
+	//			downCast<uint32_t>(tableId), "0", 4);
+	std::set<Transport::SessionRef>::iterator it;
+	Transport::SessionRef session;
+	for (it=sessions.begin(); it != sessions.end(); it++){
+		session = *it;
+	}
 	MasterClient masterClient(session);
 	debug("[+] Migrating data...");
+
 	masterClient.migrateTablet(tableId, 0, ~0UL, RAMCloud::ServerId(2));
 	debug("done\n");
-
-    Buffer value;
-    int64_t objectValue = 16;
-
-	debug("[+] Writing data for statistics\n");
-
-	masterClient.write(tableId, "key0", 4, &objectValue, 8, NULL, &version);
-	masterClient.read(tableId, "key0", 4, &value);
-	masterClient.read(tableId, "key0", 4, &value);
-	masterClient.read(tableId, "key0", 4, &value);
-
-	ProtoBuf::ServerStatistics serverStats;
-	masterClient.getServerStatistics(serverStats);
-
-	cout << "Stats " << serverStats.ShortDebugString() << endl;
-
-	masterClient.splitMasterTablet(0, 0, ~0UL, (~0UL/2));
-	masterClient.getServerStatistics(serverStats);
-	cout << "Stats " << serverStats.ShortDebugString() << endl;
-
-//	EXPECT_EQ("tabletentry { table_id: 0 "
-//			"start_key_hash: 0 "
-//			"end_key_hash: 9223372036854775806 } "
-//			"tabletentry { table_id: 0 start_key_hash: 9223372036854775807 "
-//			"end_key_hash: 18446744073709551615 }",
-//			serverStats.ShortDebugString());
-
 
 	return 0;
 }

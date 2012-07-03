@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 .*.swp
 \#*#
 *.pyc
@@ -20,7 +19,6 @@
 /scripts/localconfig.py
 TAGS
 tags
-=======
 # Compiled Object files
 *.slo
 *.lo
@@ -33,4 +31,6 @@ tags
 *.lai
 *.la
 *.a
->>>>>>> 58ebb7f872175bec09ec769df9c4832946ffcf72
+
+migrate-performance/migrate-performance
+split-and-migrate/split-and-migrate

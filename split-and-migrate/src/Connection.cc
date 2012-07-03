@@ -4,10 +4,8 @@ using namespace RAMCloud;
 
 
 
-Connection::Connection(string host, int port) {
-    this->host = host;
-    this->port = port;
-    this->connectionString = "" + host + ",port=" + Helper::itoa(port);
+Connection::Connection(string connectionString) {
+    this->connectionString = connectionString;
     std::cout << "Connection String " << connectionString << std::endl;
 
 }
@@ -22,7 +20,7 @@ void Connection::connect() {
 
     this->ramCloud = new RamCloud(*context, connectionString.c_str());
 
-    std::cout << "Successfully connected to " << host << std::endl;
+    std::cout << "Successfully connected to " << connectionString << std::endl;
 }
 
 

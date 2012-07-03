@@ -11,8 +11,7 @@ using namespace RAMCloud;
  */
 
 uint32_t INSERTAMOUNT = 20;
-string host = "tcp:host=192.168.30.187";
-int port = 12246;
+string connectionString = "tcp:host=127.0.0.1,port=12246";
 map<string, int (*)(vector<string>&) > commands;
 Connection* connection = NULL;
 
@@ -118,11 +117,12 @@ bool validateArgs(vector<string> args, unsigned int min, unsigned int max) {
 	if (args.size() < min || args.size() > max) {
 		writeResultLine("Invalid number of arguments!");
 	}
-	return args.size() >= min && args.size() <= max;
+	return true;//args.size() >= min && args.size() <= max;
 }
 int setTable(vector<string>& args) {
 
 	if (!ensureConnection() || !validateArgs(args, 1, 1)) {
+		cout << "Usage: set table TABLENAME" << endl;
 		return -1;
 	}
 
@@ -135,6 +135,8 @@ int setTable(vector<string>& args) {
 int createTable(vector<string>& args) {
 
 	if (!ensureConnection() || !validateArgs(args, 1, 1)) {
+		cout << "Usage: create table TABLENAME" << endl;
+
 		return -1;
 	}
 
@@ -146,6 +148,8 @@ int createTable(vector<string>& args) {
 int dropTable(vector<string>& args) {
 
 	if (!ensureConnection() || !validateArgs(args, 1, 1)) {
+		cout << "Usage: drop table TABLE NAME" << endl;
+
 		return -1;
 	}
 
@@ -158,21 +162,28 @@ int dropTable(vector<string>& args) {
 int readString(vector<string>& args) {
 
 	if (!ensureSetTable() || !validateArgs(args, 1, 1)) {
+		cout << "Usage: read KEY" << endl;
 		return -1;
 	}
 
 	const char* key = args[0].c_str();
 	RAMCloud::Buffer result;
-	connection->getRamCloud()->read(connection->getTableId(), key, strlen(key), &result);
-	char* resultString = new char[result.getTotalLength()];
-	result.copy(0, result.getTotalLength(), resultString);
-	writeResultLine(resultString);
+	try {
+		connection->getRamCloud()->read(connection->getTableId(), key, strlen(key), &result);
+		char* resultString = new char[result.getTotalLength()];
+		result.copy(0, result.getTotalLength(), resultString);
+		writeResultLine(resultString);
+	}
+	catch (RAMCloud::ObjectDoesntExistException e){
+		cout << e.what() << endl;
+	}
 	return 0;
 }
 
 int writeString(vector<string>& args) {
 
 	if (!ensureSetTable() || !validateArgs(args, 2, 2)) {
+		cout << "Usage: write KEY VALUE" << endl;
 		return -1;
 	}
 
@@ -191,13 +202,12 @@ int writeThousandStrings(vector<string>& args) {
 
 	// const char* key = args[0].c_str();
 	string value = args[1];
-	int entries = 0;
-	entries = atoi(args[0].c_str());
+	int entries = atoi(args[0].c_str());
 
 	for (int i =0; i < entries; i++){
 		char* key = Helper::itoa(i);
 		connection->getRamCloud()->write(connection->getTableId(), key, strlen(key), value.c_str());
-		cout << "wrote key " << Helper::itoa(i) << " with value " << value << endl;
+//		cout << "wrote key " << Helper::itoa(i) << " with value " << value << endl;
 	}
 	return 0;
 }
@@ -261,29 +271,63 @@ int migrateTablet(vector<string>& args){
 
 	return 0;
 }
-int showTabletStatistics(vector<string>& args){
-	if (!ensureConnection() || !validateArgs(args, 0, 1)) {
+
+int migrateQuickTablet(vector<string>& args){
+	if (!ensureConnection() || !validateArgs(args, 1, 1)) {
+		cout << "Usage: migrate tablet TABLENAME STARTHASH ENDHASH TARGETSERVER" << endl;
+		cout << "e.g. migrate tablet customer::C_MKTSEGMENT 0 ~0UL 0" << endl;
 		return -1;
 	}
+	vector<string> argsnew;
+	argsnew.push_back(args[0]);
+	argsnew.push_back("0");
+	argsnew.push_back("~0UL");
+	std::set<Transport::SessionRef> sessions;
 
-	uint64_t tableId;
+	std::set<Transport::SessionRef>::iterator it;
+	Transport::SessionRef session;
 
-	if (args[0] != ""){
-		tableId= connection->getTableIdFromName(args[0]);
+	for (it=sessions.begin(); it != sessions.end(); it++){
+		session = *it;
 	}
-	else {
-		tableId = connection->getTableId();
-	}
 
-	RamCloud client(*(connection->getContext()), connection->getConnectionString().c_str());
+	MasterClient masterClient(session);
 
-	MasterService masterService;
-
-	RAMCloud::Table* table = reinterpret_cast<Table*>(
-			masterService.tablets.tablet(tableId).user_data());
-	cout << "Tablet stati: " << table->statEntry.number_read_and_writes() << endl;
-	return 0;
+	//	unsigned int tableId = connection->getTableIdFromName(args[0]);
+	//	session = connection->getRamCloud()->objectFinder.tableLookup(tableId);
+	//	masterClient.
+	//	if ( currentServerId==1){
+	//		argsnew.push_back(2);
+	//	} else {
+	//		argsnew.push_back(1);
+	//	}
+	argsnew.push_back(args[1]);
+	migrateTablet(argsnew);
 }
+
+//int showTabletStatistics(vector<string>& args){
+//	if (!ensureConnection() || !validateArgs(args, 0, 1)) {
+//		return -1;
+//	}
+//
+//	uint64_t tableId;
+//
+//	if (args[0] != ""){
+//		tableId= connection->getTableIdFromName(args[0]);
+//	}
+//	else {
+//		tableId = connection->getTableId();
+//	}
+//
+//	RamCloud client(*(connection->getContext()), connection->getConnectionString().c_str());
+//
+//	MasterService masterService;
+//
+//	RAMCloud::Table* table = reinterpret_cast<Table*>(
+//			masterService.tablets.tablet(tableId).user_data());
+//	cout << "Tablet stati: " << table->statEntry.number_read_and_writes() << endl;
+//	return 0;
+//}
 
 int showServerStatistics(vector<string>& args){
 	if (!ensureConnection() || !validateArgs(args, 1, 1)) {
@@ -319,13 +363,16 @@ int showServerStatistics(vector<string>& args){
 }
 
 int init(vector<string>& args){
-	string tableName = "test_table";
+	if (!ensureConnection()) {
+		return -1;
+	}
+	string tableName = "tt";
 	vector<string> createTableArgs;
 	vector<string> setTableArgs;
 	vector<string> writeThousandStringsArgs;
 	vector<string> showStatisticsArgs;
 
-	writeThousandStringsArgs.push_back("1000");
+	writeThousandStringsArgs.push_back("100000");
 	writeThousandStringsArgs.push_back("testValue");
 
 	createTableArgs.push_back(tableName);
@@ -334,7 +381,9 @@ int init(vector<string>& args){
 	showStatisticsArgs.push_back("999");
 
 	createTable(createTableArgs);
+	cout << "tabelle erstellt" << endl;
 	setTable(setTableArgs);
+	writeThousandStrings(writeThousandStringsArgs);
 	writeThousandStrings(writeThousandStringsArgs);
 	showServerStatistics(showStatisticsArgs);
 
@@ -346,12 +395,13 @@ void initializeCommands() {
 	commands["create table"] = &createTable;
 	commands["split table"] = &splitTable;
 	commands["migrate tablet"] = &migrateTablet;
+	commands["migrate"] =&migrateQuickTablet;
 	commands["drop table"] = &dropTable;
 	commands["read"] = &readString;
 	commands["write"] = &writeString;
 	commands["write strings"] = &writeThousandStrings;
 	commands["server stats"] = &showServerStatistics;
-	commands["tablet stats"] = &showTabletStatistics;
+	//	commands["tablet stats"] = &showTabletStatistics;
 	commands["stats"] = &showServerStatistics;
 
 }
@@ -385,7 +435,7 @@ void executeCommand(string input) {
 int main(int argc, char const *argv[])
 {
 	initializeCommands();
-	connection =  new Connection(host, port);
+	connection =  new Connection(connectionString);
 	connection->connect();
 
 	writeline("Welcome to the RAMCloud Console!");
