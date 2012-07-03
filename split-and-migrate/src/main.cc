@@ -11,7 +11,7 @@ using namespace RAMCloud;
  */
 
 uint32_t INSERTAMOUNT = 20;
-string connectionString = "tcp:host=127.0.0.1,port=12246";
+string connectionString = "infrc:host=rc30,port=12246";
 map<string, int (*)(vector<string>&) > commands;
 Connection* connection = NULL;
 

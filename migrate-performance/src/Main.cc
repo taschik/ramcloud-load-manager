@@ -49,8 +49,9 @@ static char* itoa (int value){
 	return key;
 }
 
+
 int main(int argc, char const *argv[]) {
-	const char* coordinatorLocator = "tcp:host=127.0.0.1,port=12246";
+	const char* coordinatorLocator = "infrc:host=rc30,port=12246";
 
 	RamCloud cloud(coordinatorLocator);
 	debug("[+] Connected\n");
@@ -102,3 +103,4 @@ int main(int argc, char const *argv[]) {
 
 	return 0;
 }
+

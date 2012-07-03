@@ -5,7 +5,7 @@ TARGET = split-and-migrate
 CCACHE = ccache
 
 # Relative path to RAMCloud dir 
-RAMCLOUD_DIR = ../../ramcloud-load-manager
+RAMCLOUD_DIR = ../../ramcloud-AnalyticsDB
 
 # Derived defines
 INCLUDE = -I$(RAMCLOUD_DIR)/src -I$(RAMCLOUD_DIR)/obj.master -Iinclude
