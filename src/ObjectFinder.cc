@@ -188,6 +188,36 @@ ObjectFinder::tableLookup(uint64_t table)
     return sessionRefBins;
 }
 
+Transport::SessionRef
+ObjectFinder::serverLookupWithTabletRange(uint64_t table, uint64_t startKey, uint64_t endKey)
+{
+    std::set<Transport::SessionRef> sessionRefBins;
+
+    if (sessionRefBins.size() == 0) {
+                    // tablet is recovering or something, try again
+                    tabletMapFetcher->getTabletMap(tabletMap);
+    }
+
+    Transport::SessionRef session; 
+
+
+    foreach (const ProtoBuf::Tablets::Tablet& tablet, tabletMap.tablet()) {
+        if (tablet.table_id() == table) {
+            if (tablet.state() == ProtoBuf::Tablets_Tablet_State_NORMAL &&
+                tablet.start_key_hash() == startKey &&
+                tablet.end_key_hash() == endKey) {
+                // TODO(ongaro): add cache
+                session = Context::get().transportManager->getSession(tablet.service_locator().c_str());
+            }
+        }
+
+    }
+
+    return session;
+}
+
+
+
 std::vector<ObjectFinder::KeysAtServer>
 ObjectFinder::resolveTableDistribution(uint64_t tableId, uint64_t maxKey)
 {

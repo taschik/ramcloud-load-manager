@@ -58,6 +58,8 @@ class ObjectFinder {
 
     std::set<Transport::SessionRef> tableLookup(uint64_t table);
 
+    Transport::SessionRef serverLookupWithTabletRange(uint64_t table, uint64_t startKey, uint64_t endKey);
+
     std::vector<KeysAtServer> resolveTableDistribution(uint64_t tableId,
                                                        uint64_t maxKey);
 
